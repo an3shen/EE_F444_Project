@@ -22,7 +22,9 @@ void main()
     P2IFG &= ~BIT6; // enable flag
 
     P1DIR |= BIT4; // Some pin for measureing the clock
-    P1OUT &= BIT4
+    P1OUT &= BIT4;
+
+    P10DIR |= BIT0;
 
     P1DIR |= BIT0; // LED
     P1OUT &= ~BIT0;

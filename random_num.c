@@ -2,6 +2,8 @@
 static unsigned int state =1;
 unsigned long int next = 1;
 void my_seed(unsigned int s)
+unsigned int x;
+
 {
     state = s;
 }
@@ -25,6 +27,6 @@ void srand(unsigned int seed)
 int main(void)
 {
     srand(TA0R); // seed the generator
-    int x = rand()+3;
+    x = rand()+3;
     return 0;
 }

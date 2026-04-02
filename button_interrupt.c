@@ -5,7 +5,7 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
         if (state == 0)
         {
             TA0CTL |= TACLR;
-            unsigned int delay_ms = my_rand() % 3000 + 500; //Replace with random_num
+            unsigned int delay_ms = x % 3000 + 500; //Replace with random_num
             TA0CCR1 = TA0R + delay_ms * 1000;
             state = 1;
         }
