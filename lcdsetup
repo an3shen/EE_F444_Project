@@ -1,0 +1,41 @@
+void lcd_init(void)
+{
+    /* -----------------------------
+     * 1) Select LCD pins
+     * ----------------------------- */
+    LCDBPCTL0 = LCDS0 | LCDS1 | LCDS2 | LCDS3 |
+                LCDS4 | LCDS5 | LCDS6 | LCDS7 |
+                LCDS8 | LCDS9 | LCDS10 | LCDS11 |
+                LCDS12 | LCDS13 | LCDS14 | LCDS15;
+
+    LCDBPCTL1 = LCDS16 | LCDS17 | LCDS18 | LCDS19 |
+                LCDS20 | LCDS21 | LCDS22 | LCDS23 |
+                LCDS24 | LCDS25 | LCDS26 | LCDS27 |
+                LCDS28 | LCDS29 | LCDS30 | LCDS31;
+
+    LCDBPCTL2 = LCDS32 | LCDS33 | LCDS34 | LCDS35 |
+                LCDS36 | LCDS37 | LCDS38 | LCDS39;
+
+    /* -----------------------------
+     * 2) Clear LCD memory
+     * ----------------------------- */
+    LCDM3 = 0;  LCDM4 = 0;  LCDM5 = 0;  LCDM6 = 0;
+    LCDM7 = 0;  LCDM8 = 0;  LCDM9 = 0;  LCDM10 = 0;
+    LCDM11 = 0; LCDM12 = 0; LCDM13 = 0; LCDM14 = 0;
+    LCDM15 = 0; LCDM16 = 0; LCDM17 = 0; LCDM18 = 0;
+    LCDM19 = 0; LCDM20 = 0;
+
+    /* -----------------------------
+     * 3) Configure LCD voltage
+     * ----------------------------- */
+    LCDBVCTL = LCDCPEN | VLCD_1 | LCDREFEN;
+    // Charge pump ON, internal reference
+
+    /* -----------------------------
+     * 4) Configure LCD_B control
+     * ----------------------------- */
+    LCDBCTL0 = LCDDIV_7     |   // clock divider
+               LCDPRE_4     |   // prescaler
+               LCD4MUX      |   // 4-multiplex mode
+               LCDSON;          // turn LCD ON
+}
