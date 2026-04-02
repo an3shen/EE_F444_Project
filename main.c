@@ -1,4 +1,9 @@
-//#include <msp430.h>
+#include <msp430.h>
+
+static unsigned int t_led; 
+static unsigned int t_react; 
+static unsigned int state = 0; 
+static unsigned int delta;
 
 void main()
 {
@@ -16,37 +21,15 @@ void main()
     P2OUT |= BIT6; // pullup
     P2IFG &= ~BIT6; // enable flag
 
-    P10DIR |= BIT0;
+    P10DIR |= BIT0; // Some pin for measureing the clock
+
+    P1DIR |= BIT0; // LED
+    P1OUT $= ~BIT0
 
     //Timer A
-    TA0CTL = TASSEL_2 + MC__CONTINOUS + TACLR + ID_0;
-    TA0EX0 = TAIDEX_0; //Probably not neccessary
+    TA0CTL = TASSEL_2 + MC__CONTINOUS + TACLR;
+    TA0CCTL1 = CCIE // Enable CCR1 interrupt
 
-    eint();
-    lpm0;
-}
-
-    static unsigned int t1; 
-    static unsigned int t2; 
-    static unsigned int state = 0; 
-    static unsigned int delta;
-void button_interrupt(void)__interrupt[PORT2_VECTOR]
-{ 
-    if (P2IV == 0x0e)
-    {
-        if (state == 0)// this flips to go back and forth to measure
-        {
-            P10OUT ^= BIT0;
-            t1 = TA0R;
-            state = 1;
-            P8OUT |= BIT6;
-        }
-        else 
-        {
-            P10OUT &=~ BIT0;
-            t2 = TA0R;
-            delta = t2 - t1;
-            state = 0; 
-        }
-    }
+    EINT();
+    LPM0;
 }
