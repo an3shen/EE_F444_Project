@@ -21,7 +21,8 @@ void main()
     P2OUT |= BIT6; // pullup
     P2IFG &= ~BIT6; // enable flag
 
-    P10DIR |= BIT0; // Some pin for measureing the clock
+    P1DIR |= BIT4; // Some pin for measureing the clock
+    P1OUT &= BIT4
 
     P1DIR |= BIT0; // LED
     P1OUT &= ~BIT0;
