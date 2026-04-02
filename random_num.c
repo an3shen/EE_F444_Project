@@ -24,7 +24,7 @@ void srand(unsigned int seed)
 
 int main(void)
 {
-    srand(5282); // seed the generator
+    srand(TA0R); // seed the generator
     int x = rand()+3;
     return 0;
 }

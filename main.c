@@ -24,11 +24,11 @@ void main()
     P10DIR |= BIT0; // Some pin for measureing the clock
 
     P1DIR |= BIT0; // LED
-    P1OUT $= ~BIT0
+    P1OUT &= ~BIT0;
 
     //Timer A
     TA0CTL = TASSEL_2 + MC__CONTINOUS + TACLR;
-    TA0CCTL1 = CCIE // Enable CCR1 interrupt
+    TA0CCTL1 = CCIE; // Enable CCR1 interrupt
 
     EINT();
     LPM0;
