@@ -4,10 +4,15 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
     {
         if (state == 0)
         {
-            TA0CTL |= TACLR;
-            TA0CCR1 = x * 1000;
-            state = 1;
+          TA0CTL |= TACLR;
+
+          r = 10;   // whatever function the TI RNG file provides   //CHANGE THIS
+          delay_counts = 2 * ONE_SEC + (r % (4 * ONE_SEC));
+
+          TA0CCR1 = TA0R + delay_counts;
+          state = 1;
         }
+
         else if (state == 2)
         {
             t_react = TA0R;
@@ -18,4 +23,3 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
         }
     }
 }
-
