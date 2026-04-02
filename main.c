@@ -1,7 +1,16 @@
 //#include <msp430.h>
+extern int IncrementVcore(void);
 
 void main()
 {
+    IncrementVcore();
+    IncrementVcore();
+    IncrementVcore();
+
+    //Unified Clock Setup
+    UCSCTL2 = 1
+    UCSCTL3 = SELREF_0
+
     // Button
     P2DIR &= ~BIT6; //selects s1 as a button
     P2IES |= BIT6; //selects interrupt edge 
@@ -9,6 +18,9 @@ void main()
     P2REN |= BIT6; // pullup 
     P2OUT |= BIT6; // pullup
     P2IFG &= ~BIT6; // enable flag
+
+    P10DIR |= BIT0;
+
 
     eint();
     lpm0;
