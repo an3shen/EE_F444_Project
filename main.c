@@ -1,15 +1,12 @@
 //#include <msp430.h>
-extern int IncrementVcore(void);
 
 void main()
 {
-    IncrementVcore();
-    IncrementVcore();
-    IncrementVcore();
 
     //Unified Clock Setup
-    UCSCTL2 = 1
-    UCSCTL3 = SELREF_0
+    UCSCTL2 = 1;
+    UCSCTL3 = SELREF_0;
+    UCSCTL4 = SELS_0;
 
     // Button
     P2DIR &= ~BIT6; //selects s1 as a button
@@ -21,6 +18,9 @@ void main()
 
     P10DIR |= BIT0;
 
+    //Timer A
+    TA0CTL = TASSEL_2 + MC__CONTINOUS + TACLR + ID_0;
+    TA0EX0 = TAIDEX_0; //Probably not neccessary
 
     eint();
     lpm0;
