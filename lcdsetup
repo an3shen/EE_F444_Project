@@ -5,7 +5,7 @@
 volatile unsigned long g_ms = 0;
 
 /* Convert milliseconds to string "X.XXX" */
-void format_time_ms(unsigned long ms, char *buf)
+void formatTime(unsigned long ms, char *buf)
 {
     unsigned int whole;
     unsigned int frac;
@@ -17,42 +17,25 @@ void format_time_ms(unsigned long ms, char *buf)
 
     whole = (unsigned int)(ms / 1000UL);   // 0 to 9
     frac  = (unsigned int)(ms % 1000UL);   // 000 to 999
-
-    buf[0] = '0' + whole;
-    buf[1] = '.';
-    buf[2] = '0' + (frac / 100);
-    buf[3] = '0' + ((frac / 10) % 10);
-    buf[4] = '0' + (frac % 10);
-    buf[5] = '\0';
+    
+    buf[0] = '0' + whole / 10;
+    buf[1] = '0' + whole % 10;
+    buf[2] = '.';
+    buf[3] = '0' + (frac / 100);
+    buf[4] = '0' + ((frac / 10) % 10);
+    buf[5] = '0' + (frac % 10);
+    buf[6] = '\0';
 }
 
-/* Timer setup for about 1 ms interrupts using ACLK = 32768 Hz */
-void timer_init(void)
-{
-    TA0CCR0  = 33;                      // about 1 ms
-    TA0CCTL0 = CCIE;                    // enable CCR0 interrupt
-    TA0CTL   = TASSEL__ACLK | MC__UP | TACLR;
-}
 
-/* LCD setup */
-void lcd_init(void)
-{
-    halBoardInit();         // board init
-    halLcdInit();           // LCD init
-    halLcdClearScreen();    // clear LCD
 
-    /* Optional if your HAL supports these */
-     halLcdBackLightInit();
-     halLcdSetBackLight(10);
-     halLcdSetContrast(100);
-}
 
 /* Show the time string on line 0 */
-void lcd_show_time(unsigned long ms)
+void showTime(unsigned long ms)
 {
-    char buf[6];
+    char buf[7];
 
-    format_time_ms(ms, buf);
+    formatTime(ms, buf);
 
     halLcdClearScreen();
     halLcdPrintLine(buf, 0, OVERWRITE_TEXT);
@@ -60,19 +43,30 @@ void lcd_show_time(unsigned long ms)
 
 int main(void)
 {
-    WDTCTL = WDTPW | WDTHOLD;
 
-    lcd_init();
-    timer_init();
+    //NOTE LCD Board Initialization
+    halBoardInit();         // board init
+    halLcdInit();           // LCD init
+    halLcdClearScreen();    // clear LCD
+    halLcdBackLightInit();
+    halLcdSetBackLight(10);
+    halLcdSetContrast(100);
 
-    __bis_SR_register(GIE);
+    //NOTE this is the timer setup using a 32kHz crystal for ACLK as the source
+    TA0CCR0  = 33;                      // about 1 ms 32768cylespersecond/1000milliseconds = 33cyclespermillisecond
+    TA0CCTL0 = CCIE;                    // enable CCR0 interrupt
+    TA0CTL   = TASSEL__ACLK | MC__UP | TACLR;
+
+  _EINT();
 
     while (1)
     {
-        lcd_show_time(g_ms);
-       // __delay_cycles(500);   // slows screen refresh a little
+        showTime(g_ms);
+       // __delay_cycles(500);   // slows screen refresh a little but find what works for you stukk
     }
 }
+
+
 
 /* Timer interrupt */
 #pragma vector = TIMER0_A0_VECTOR
@@ -80,7 +74,7 @@ __interrupt void TIMER0_A0_ISR(void)
 {
     g_ms++;
 
-    if (g_ms > 9999UL)
+    if (g_ms > 99999UL)
     {
         g_ms = 0;
     }
