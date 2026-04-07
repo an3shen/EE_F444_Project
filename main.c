@@ -1,11 +1,16 @@
 #include <msp430.h>
 
+
 static unsigned int t_led; 
 static unsigned int t_react; 
 static unsigned int state = 0; 
 static unsigned int delta;
+unsigned int r;
+unsigned int delay_counts;
+#define ONE_SEC 4096
 
-void main()
+//NOTE 
+void main(void)
 {
 
     //Unified Clock Setup
@@ -22,7 +27,7 @@ void main()
     P2IFG &= ~BIT6; // enable flag
 
     P1DIR |= BIT4; // Some pin for measureing the clock
-    P1OUT &= BIT4;
+    P1OUT &= ~BIT4;
 
     P10DIR |= BIT0;
 
@@ -30,9 +35,9 @@ void main()
     P1OUT &= ~BIT0;
 
     //Timer A
-    TA0CTL = TASSEL_2 + MC__CONTINOUS + TACLR;
+    TA0CTL = TASSEL_2 + MC__CONTINUOUS + TACLR + ID_3;  //32 kHz for timer
     TA0CCTL1 = CCIE; // Enable CCR1 interrupt
 
-    EINT();
+    _EINT();
     LPM0;
 }

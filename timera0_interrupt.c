@@ -8,3 +8,5 @@ void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
         state = 2;
     }
 }
+
+
