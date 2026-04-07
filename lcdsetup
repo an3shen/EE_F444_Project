@@ -62,16 +62,16 @@ int main(void)
 {
     WDTCTL = WDTPW | WDTHOLD;
 
-    lcd_init();
-    timer_init();
+        lcd_init();
+            timer_init();
 
-    __bis_SR_register(GIE);
+                __bis_SR_register(GIE);
 
-    while (1)
-    {
-        lcd_show_time(g_ms);
-       // __delay_cycles(500);   // slows screen refresh a little
-    }
+                    while (1)
+                        {
+                                lcd_show_time(g_ms);
+                                       // __delay_cycles(500);   // slows screen refresh a little
+                                           }
 }
 
 /* Timer interrupt */
