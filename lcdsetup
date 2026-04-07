@@ -10,9 +10,9 @@ void formatTime(unsigned long ms, char *buf)
     unsigned int whole;
     unsigned int frac;
 
-    if (ms > 9999UL)
+    if (ms > 99999UL)
     {
-        ms = 9999UL;
+        ms = 99999UL;
     }
 
     whole = (unsigned int)(ms / 1000UL);   // 0 to 9
@@ -67,10 +67,11 @@ int main(void)
 }
 
 
+//void USCI_A1_ISR(void)__interrupt[USCI_A1_VECTOR]{   //this is a better ISR header format
 
 /* Timer interrupt */
 #pragma vector = TIMER0_A0_VECTOR
-__interrupt void TIMER0_A0_ISR(void)
+__interrupt void timer0A0ISR(void)
 {
     g_ms++;
 
