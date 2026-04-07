@@ -1,6 +1,6 @@
 unsigned int sound_detected = 0;
 unsigned int sound_time = 0;
-#define SOUND_THRESHOLD 2800 //claaping is around 80-90 dB
+#define SOUND_THRESHOLD 2800 //claping is around 80-90 dB
 
 void main(void)
 {
