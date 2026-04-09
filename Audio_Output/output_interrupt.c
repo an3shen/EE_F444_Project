@@ -6,8 +6,7 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR] //Replace button interrupt
         {
             TA0CTL |= TACLR;
 
-            r = 10;
-            delay_counts = 2 * ONE_SEC + (r % (4 * ONE_SEC));
+            delay_counts = 2 * ONE_SEC + (10 % (4 * ONE_SEC));
 
             TA0CCR1 = TA0R + delay_counts;
             state = 1;
