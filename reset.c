@@ -36,12 +36,9 @@ switch (P2IV)
         state = 0;
         sound_detected = 0;
 
-        P1Out &= ~BIT0;
+        P1OUT &= ~BIT0;
         stop_tone();
 
         TA0CCTL1 &= ~CCIE;  // disable pending CCR1 event
         break;
-
-
-    
 }
