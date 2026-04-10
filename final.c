@@ -12,7 +12,7 @@ unsigned int delay_counts;
 volatile unsigned long g_ms = 0;
 unsigned int sound_detected = 0;
 unsigned int sound_time = 0;
-#define SOUND_THRESHOLD 500 //claping is around 80-90 dB
+#define SOUND_THRESHOLD 150 //claping is around 80-90 dB; 150-300 is load clap;300-600 is very load clap, etc,
 void buzzer_init(void);
 void play_tone(unsigned int freq);
 void stop_tone(void);
@@ -88,11 +88,11 @@ void main(void)
 
 
     //Configure ADC12 for A5 (audio input)
-    ADC12CTL0 = ADC12SHT0_2 | ADC12ON; // Need to change sample time: scurrently sampling 16 ADC12CLK cycles
-    ADC12CTL1 = ADC12SHP | ADC12SSEL_1 |ADC12CONSEQ_2; //SAMPSON sourced from sample timer, sequence of reapeat signal channel, set to SMCLK
+    ADC12CTL0 = ADC12SHT0_8 | ADC12ON; //128-cycle sample time
+    ADC12CTL1 = ADC12SHP | ADC12SSEL_3 |ADC12CONSEQ_2; // SMCLK, repeat single channel
     ADC12MCTL0 = ADC12INCH_5; // Selects Channel A5
     ADC12IE = ADC12IE0; // this bit enables the interrupt rquest for ADC12IFG0
-    ADC12CTL0 |= ADC12ENC;              // enable ADC
+    ADC12CTL0 |= ADC12ENC | ADC12SC;              // enable ADC and start conversions
    
 
     //Timer A
@@ -190,29 +190,26 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
     unsigned int sample = ADC12MEM0;
 
-    if (!sound_detected && sample > SOUND_THRESHOLD)
+    if (state == 2 $$ !sound_detected && sample > SOUND_THRESHOLD)
     {
         sound_time = TA0R;
         sound_detected = 1;
-        ADC12CTL0 &= ~ADC12ENC;
+
     }
 }
 
 unsigned int startTime = 0;
 void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
 {
-  P1OUT |= BIT0;  
-  t_led = TA0R;    //THIS IS THE START OF REACTION TIME
-  state = 2;
-ADC12CTL0 |= ADC12SC;
-  play_tone(100);   
- 
-    if (TA0IV == TA0IV_TACCR1)
-    {
-        TA0CCTL1 &= ~CCIE;  
-        P10OUT ^= BIT0; // toggles waveforms
-        P1OUT |= BIT0;
-        t_led = TA0R;
-        state = 2;
-    }
+if (TA0IV == TA0IV_TACCR1)
+{
+    TA0CCTL1 &= ~CCIE;
+
+    P1OUT |= BIT0;       // LED ON
+    t_led = TA0R;        // Start time
+    state = 2;
+
+    sound_detected = 0;  // <-- IMPORTANT RESET
+    play_tone(100);
+}
 }

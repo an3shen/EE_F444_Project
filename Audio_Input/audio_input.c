@@ -9,7 +9,7 @@ void main(void)
     P6OUT |= BIT4;      // turn ON mic + op-amp
 
     //Configure ADC12 for A5 (audio input)
-    ADC12CTL0 = ADC12SHT0_2 | ADC12ON; // Need to change sample time: scurrently sampling 16 ADC12CLK cycles
+    ADC12CTL0 = ADC12SHT0_8 | ADC12ON; // 128-cycle sample time
     ADC12CTL1 = ADC12SHP | ADC12SSEL_3 |ADC12CONSEQ_2; //SAMPSON sourced from sample timer, sequence of reapeat signal channel, set to SMCLK
     ADC12MCTL0 = ADC12INCH_5; // Selects Channel A5
     ADC12IE = ADC12IE0; // this bit enables the interrupt rquest for ADC12IFG0
