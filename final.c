@@ -160,29 +160,52 @@ __interrupt void timer0A0ISR(void)
 
 //NOTE butt
 
-void button_interrupt(void)__interrupt[PORT2_VECTOR] //Replace button interrupt
-{
-    if (P2IV == 0x0e)
+
+//button interrupt
+void button_interrupt(void)__interrupt[PORT2_VECTOR]
+{ 
+    switch (P2IV) 
     {
-        if (state == 0)
-        {
-            TA0CTL |= TACLR;
+        case 0x10: Start/reset button
+            if (state == 0) //Starts the shot timer
+            {
+                TA0CTL |= TACLR; // clears timer
+                sound_detected = 0;
+                P1OUT &= ~BIT0; // LED off
+                stop_tone(); //buzzer off
 
-            delay_counts = 2 * ONE_SEC + (10 % (4 * ONE_SEC));
+                delay_counts = 2 * ONE_SEC + (10 % (4 * ONE_SEC));
 
-            TA0CCR1 = TA0R + delay_counts;
-            state = 1;
-        }
+                TA0CCR1 =TA0R + delay_counts;
+                TA0CCTL1 |= CCIE; // enables CCR1 interrupt
 
-        else if (state == 2)
-        {
-            t_react = TA0R;
-            delta = t_react - t_led;
+                state = 1; // waits for LED/buzzer
+            }
+            else
+            { // Reset
+                state = 0;
+                sound_detected = 0;
 
-            P1OUT &= ~BIT0; // remove led
-            stop_tone();      // <-- AUDIO OFF
-            state = 0;
-        }
+                P1OUT &= ~BIT0;
+                stop_tone();
+
+                TA0CCTL1 |= CCIE; // disables CCR1 interrupt
+                TA0CCR0 = 0;
+            }
+            break;
+
+        case 0x0e: //reaction
+            if (state == 2)
+            {
+                t_react = TA0R;
+                delta = t_react - t_led;
+
+                P1OUT &= ~BIT0; //LED off
+                stop_tone(); // Buzzer off
+
+                state = 0; // idle
+            }
+            break;
     }
 }
 
@@ -190,7 +213,7 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
     unsigned int sample = ADC12MEM0;
 
-    if (state == 2 $$ !sound_detected && sample > SOUND_THRESHOLD)
+    if (state == 2 && !sound_detected && sample > SOUND_THRESHOLD)
     {
         sound_time = TA0R;
         sound_detected = 1;
@@ -201,15 +224,15 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 unsigned int startTime = 0;
 void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
 {
-if (TA0IV == TA0IV_TACCR1)
-{
-    TA0CCTL1 &= ~CCIE;
+    if (TA0IV == TA0IV_TACCR1)
+    {
+        TA0CCTL1 &= ~CCIE;
 
-    P1OUT |= BIT0;       // LED ON
-    t_led = TA0R;        // Start time
-    state = 2;
+        P1OUT |= BIT0;       // LED ON
+        t_led = TA0R;        // Start time
+        state = 2;
 
-    sound_detected = 0;  // <-- IMPORTANT RESET
-    play_tone(100);
-}
+        sound_detected = 0;  // <-- IMPORTANT RESET
+        play_tone(100);
+    }
 }

@@ -9,36 +9,44 @@
 
 
 //button interrupt
-
-switch (P2IV) 
-{
-    case 0x0e:
-    if (state == 0)
-        {
-          TA0CTL |= TACLR;
-
-          r = 10;   // whatever function the TI RNG file provides   //CHANGE THIS
-          delay_counts = 2 * ONE_SEC + (r % (4 * ONE_SEC));
-
-          TA0CCR1 = TA0R + delay_counts;
-          state = 1;
-        }
-
-    else if (state == 2)
+case 0x10: Start/reset button
+    if (state == 0) //Starts the shot timer
     {
-        t_react = TA0R;
-        delta = t_react - t_led;
+        TA0CTL |= TACLR; // clears timer
+        sound_detected = 0;
+        P1OUT &= ~BIT0; // LED off
+        stop_tone(); //buzzer off
 
-        P1OUT &= ~BIT0;
-        state = 0;
+        delay_counts = 2 * ONE_SEC + (10 % (4 * ONE_SEC));
+
+        TA0CCR1 =TA0R + delay_counts;
+        TA0CCTL1 |= CCIE; // enables CCR1 interrupt
+
+        state = 1; // waits for LED/buzzer
     }
-    case 0x10:
+    else
+    { // Reset
         state = 0;
         sound_detected = 0;
 
         P1OUT &= ~BIT0;
         stop_tone();
 
-        TA0CCTL1 &= ~CCIE;  // disable pending CCR1 event
-        break;
-}
+        TA0CCTL1 |= CCIE; // disables CCR1 interrupt
+        TA0CCR0 = 0;
+    }
+    break;
+
+case 0x0e: //reaction
+    if (state == 2)
+    {
+        t_react = TA0R;
+        delta = t_react - t_led;
+
+        P1OUT &= ~BIT0; //LED off
+        stop_tone(); // Buzzer off
+
+        state = 0; // idle
+    
+    }
+    break;
