@@ -1,5 +1,5 @@
 #include <msp430.h>
-#include "hal_board.h"
+#include "HAL_MSP-EXP430F5438.h"
 #include "hal_lcd.h"
 
 static unsigned int t_led; 
@@ -12,8 +12,6 @@ unsigned int delay_counts;
 volatile unsigned long g_ms = 0;
 unsigned int sound_detected = 0;
 unsigned int sound_time = 0;
-//unsigned int shotTimesSize = 10;
-//unsigned int shotTimes[1];
 #define SOUND_THRESHOLD 150 //claping is around 80-90 dB; 150-300 is load clap;300-600 is very load clap, etc,
 void buzzer_init(void);
 void play_tone(unsigned int freq);
@@ -49,8 +47,8 @@ void showTime(unsigned long ms)
 
     formatTime(ms, buf);
 
-    halLcdClearScreen();
-    halLcdPrintLine(buf, 0, OVERWRITE_TEXT);
+//    halLcdClearScreen();
+ //   halLcdPrintLine(buf, 0, OVERWRITE_TEXT);
 }
 
 //NOTE 
@@ -111,12 +109,12 @@ void main(void)
    TA0CCTL0 = CCIE;                    // enable CCR0 interrupt
 
     //NOTE LCD Board Initialization
-    halBoardInit();         // board init
-    halLcdInit();           // LCD init
-    halLcdClearScreen();    // clear LCD
-    halLcdBackLightInit();
-    halLcdSetBackLight(10);
-    halLcdSetContrast(100);
+  //  halBoardInit();         // board init
+    //halLcdInit();           // LCD init
+    //halLcdClearScreen();    // clear LCD
+    //halLcdBackLightInit();
+    //halLcdSetBackLight(10);
+    //halLcdSetContrast(100);
 
     //NOTE this is the timer setup using a 32kHz crystal for ACLK as the source
 
@@ -189,9 +187,7 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
             {
                 t_react = TA0R;
                 delta = t_react - t_led;
-           //     shotTimes[shotTimesSize++] = delta;
 
-                
                 P1OUT &= ~BIT0; //LED off
                 stop_tone(); // Buzzer off
 
