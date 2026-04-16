@@ -120,13 +120,13 @@ void main(void)
 
     //TA0CTL   = TASSEL__ACLK | MC__UP | TACLR;
 
+    _EINT();
     while (1)
     {
         showTime(g_ms);
        // __delay_cycles(500);   // slows screen refresh a little but find what works for you stukk
     }
 
-    _EINT();
     LPM0;
 }
 
@@ -153,7 +153,7 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
 { 
     switch (P2IV) 
     {
-        case 0x10: Start/reset button
+        case 0x10: //Start/reset button
             if (state == 0) //Starts the shot timer
             {
                 TA0CTL |= TACLR; // clears timer
@@ -177,7 +177,7 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
                 P1OUT &= ~BIT0;
                 stop_tone();
 
-                TA0CCTL1 |= CCIE; // disables CCR1 interrupt
+                TA0CCTL1 &= ~CCIE; // disables CCR1 interrupt
                 TA0CCR0 = 0;
             }
             break;
