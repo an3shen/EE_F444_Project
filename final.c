@@ -12,6 +12,8 @@ unsigned int delay_counts;
 volatile unsigned long g_ms = 0;
 unsigned int sound_detected = 0;
 unsigned int sound_time = 0;
+unsigned int shotTimesSize = 10;
+unsigned int shotTimes[1];
 #define SOUND_THRESHOLD 150 //claping is around 80-90 dB; 150-300 is load clap;300-600 is very load clap, etc,
 void buzzer_init(void);
 void play_tone(unsigned int freq);
@@ -187,7 +189,9 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
             {
                 t_react = TA0R;
                 delta = t_react - t_led;
+                shotTimes[shotTimesSize++] = delta;
 
+                
                 P1OUT &= ~BIT0; //LED off
                 stop_tone(); // Buzzer off
 
