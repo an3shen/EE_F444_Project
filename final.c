@@ -17,7 +17,6 @@ void buzzer_init(void);
 void play_tone(unsigned int freq);
 void stop_tone(void);
 
-
 /* Convert milliseconds to string "X.XXX" */
 void formatTime(unsigned long ms, char *buf)
 {
@@ -52,7 +51,6 @@ void showTime(unsigned long ms)
     halLcdPrintLine(buf, 0, OVERWRITE_TEXT);
 }
 
-
 //NOTE 
 void main(void)
 {
@@ -62,13 +60,21 @@ void main(void)
     UCSCTL3 = SELREF_0;
     UCSCTL4 = SELA__XT1CLK;
 
-    // Button
+    // Reaction Button
     P2DIR &= ~BIT6; //selects s1 as a button
     P2IES |= BIT6; //selects interrupt edge 
     P2IE |= BIT6; //enable pin interrupt
     P2REN |= BIT6; // pullup 
     P2OUT |= BIT6; // pullup
     P2IFG &= ~BIT6; // enable flag
+
+    // Start/Reset Button
+    P2DIR &= ~BIT7; //selects s2 as a button
+    P2IES |= BIT7; //selects interrupt edge 
+    P2IE |= BIT7; //enable pin interrupt
+    P2REN |= BIT7; // pullup 
+    P2OUT |= BIT7; // pullup
+    P2IFG &= ~BIT7; // enable flag
 
     P1DIR |= BIT4; // Some pin for measureing the clock
     P1OUT &= ~BIT4;
@@ -78,14 +84,13 @@ void main(void)
     P1DIR |= BIT0; // LED
     P1OUT &= ~BIT0;
 
- // Power microphone + op-amp
+    // Power microphone + op-amp
     P6DIR |= BIT4;      // P6.4 output
     P6OUT |= BIT4;      // turn ON mic + op-amp
 
     //Speaker 
     P4DIR |= BIT4;
     P4SEL |= BIT4;
-
 
     //Configure ADC12 for A5 (audio input)
     ADC12CTL0 = ADC12SHT0_8 | ADC12ON; //128-cycle sample time
@@ -94,9 +99,7 @@ void main(void)
     ADC12IE = ADC12IE0; // this bit enables the interrupt rquest for ADC12IFG0
     ADC12CTL0 |= ADC12ENC | ADC12SC;              // enable ADC and start conversions
    
-
     //Timer A
-
     //owen or amelia timer a channel 1
     TA0CTL = TASSEL__ACLK + MC__CONTINUOUS + TACLR + ID_3;  //32 kHz for timer
     TA0CCTL1 = CCIE; // Enable CCR1 interrupt
@@ -104,16 +107,6 @@ void main(void)
     //sam timera channel 0
         TA0CCR0  = 33;                      // about 1 ms 32768cylespersecond/1000milliseconds = 33cyclespermillisecond
    TA0CCTL0 = CCIE;                    // enable CCR0 interrupt
-
-    //LCD
-
-    
-   
-    while (1)
-    {
-      showTime(g_ms);
-      __delay_cycles(500);   // slows screen refresh a little
-    }
 
     //NOTE LCD Board Initialization
     halBoardInit();         // board init
@@ -127,15 +120,13 @@ void main(void)
 
     //TA0CTL   = TASSEL__ACLK | MC__UP | TACLR;
 
-  _EINT();
-
     while (1)
     {
         showTime(g_ms);
        // __delay_cycles(500);   // slows screen refresh a little but find what works for you stukk
     }
 
-
+    _EINT();
     LPM0;
 }
 
@@ -157,10 +148,6 @@ __interrupt void timer0A0ISR(void)
     }
 }
 
-
-//NOTE butt
-
-
 //button interrupt
 void button_interrupt(void)__interrupt[PORT2_VECTOR]
 { 
@@ -174,7 +161,8 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
                 P1OUT &= ~BIT0; // LED off
                 stop_tone(); //buzzer off
 
-                delay_counts = 2 * ONE_SEC + (10 % (4 * ONE_SEC));
+                r = 10;
+                delay_counts = 2 * ONE_SEC + (r % (4 * ONE_SEC));
 
                 TA0CCR1 =TA0R + delay_counts;
                 TA0CCTL1 |= CCIE; // enables CCR1 interrupt
@@ -217,11 +205,9 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
     {
         sound_time = TA0R;
         sound_detected = 1;
-
     }
 }
 
-unsigned int startTime = 0;
 void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
 {
     if (TA0IV == TA0IV_TACCR1)
