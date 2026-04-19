@@ -22,6 +22,8 @@ volatile unsigned int audio_buffer[BUF_SIZE]; // 4050 is clapping range and 4000
 volatile unsigned int write_index = 0;
 volatile unsigned int play_index  = 0;
 volatile unsigned char recording = 0;    // for audio capture
+volatile unsigned char loud_count = 0;
+
 
 /* Convert milliseconds to string "X.XXX" */
 void formatTime(unsigned long ms, char *buf)
@@ -210,18 +212,27 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
     unsigned int sample = ADC12MEM0;
 
+    // Clap detection with consecutive-sample filtering
     if (state == 2 && !recording && !playing)
     {
-        if (!sound_detected && sample > SOUND_THRESHOLD)
+        if (sample > SOUND_THRESHOLD)
         {
-            sound_detected = 1;
-            sound_time = TA0R;
-            recording = 1;
-        write_index = 0;
+            if (++loud_count >= 5)   // require 5 consecutive loud samples
+            {
+                sound_detected = 1;
+                sound_time = TA0R;
+                recording = 1;
+                write_index = 0;
+                loud_count = 0;
+            }
+        }
+        else
+        {
+            loud_count = 0;
         }
     }
 
-
+    // Recording logic (unchanged)
     if (recording)
     {
         audio_buffer[write_index++] = sample;
@@ -231,10 +242,10 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
             recording = 0;
             playing = 1;
             play_index = 0;
-            // DO NOT clear sound_detected here
         }
     }
 }
+
 
 void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
 {
@@ -247,6 +258,6 @@ void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
         state = 2;
 
         sound_detected = 0;  // <-- IMPORTANT RESET
-        play_tone(1957);
+        play_tone(100);
     }
 }
