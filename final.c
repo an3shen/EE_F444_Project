@@ -245,6 +245,6 @@ void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
         state = 2;
 
         sound_detected = 0;  // <-- IMPORTANT RESET
-        play_tone(100);
+        play_tone(1957);
     }
 }
