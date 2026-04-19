@@ -13,16 +13,18 @@ volatile unsigned long g_ms = 0;
 volatile unsigned char sound_detected = 0;
 volatile unsigned int  sound_time = 0;
 volatile unsigned char playing   = 0;
-#define SOUND_THRESHOLD 150 //claping is around 80-90 dB; 150-300 is load clap;300-600 is very load clap, etc,
+#define SOUND_THRESHOLD 600 //claping is around 80-90 dB; 150-300 is load clap;300-600 is very load clap, etc,
 void buzzer_init(void);
 void play_tone(unsigned int freq);
 void stop_tone(void);
-#define BUF_SIZE 2000
+#define SAMPLE_RATE_HZ    8000          // Approx. 8 kHz
+#define BUF_SIZE 200
 volatile unsigned int audio_buffer[BUF_SIZE]; // 4050 is clapping range and 4000 is noise
+
 volatile unsigned int write_index = 0;
 volatile unsigned int play_index  = 0;
-volatile unsigned char recording = 0;    // for audio capture
-volatile unsigned char loud_count = 0;
+
+volatile unsigned char recording      = 0;
 
 
 /* Convert milliseconds to string "X.XXX" */
@@ -212,40 +214,34 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
     unsigned int sample = ADC12MEM0;
 
-    // Clap detection with consecutive-sample filtering
-    if (state == 2 && !recording && !playing)
+    // --- Clap detection when idle ---
+    if (!recording && !playing)
     {
-        if (sample > SOUND_THRESHOLD)
+
+        if (!sound_detected && sample > SOUND_THRESHOLD)
         {
-            if (++loud_count >= 5)   // require 5 consecutive loud samples
-            {
-                sound_detected = 1;
-                sound_time = TA0R;
-                recording = 1;
-                write_index = 0;
-                loud_count = 0;
-            }
-        }
-        else
-        {
-            loud_count = 0;
+            sound_detected = 1;
+            recording      = 1;
+            write_index    = 0;
+
         }
     }
 
-    // Recording logic (unchanged)
+    // --- Recording mode ---
     if (recording)
     {
         audio_buffer[write_index++] = sample;
 
         if (write_index >= BUF_SIZE)
         {
-            recording = 0;
-            playing = 1;
-            play_index = 0;
+            recording   = 0;
+            playing     = 1;
+            play_index  = 0;
+            sound_detected = 0;
         }
     }
-}
 
+}
 
 void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
 {
@@ -259,5 +255,6 @@ void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
 
         sound_detected = 0;  // <-- IMPORTANT RESET
         play_tone(100);
+ 
     }
 }
