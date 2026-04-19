@@ -37,6 +37,7 @@ void init_mic_and_adc(void)
     // Power microphone + op-amp on P6.4
     P6DIR |= BIT4;
     P6OUT |= BIT4;
+    P5SEL |= BIT5;
 
     // Mic input on A5 (P6.5)
     P6SEL |= BIT5;
