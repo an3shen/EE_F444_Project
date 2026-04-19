@@ -10,12 +10,17 @@ unsigned int r;
 unsigned int delay_counts;
 #define ONE_SEC 4096
 volatile unsigned long g_ms = 0;
-unsigned int sound_detected = 0;
-unsigned int sound_time = 0;
+volatile unsigned char sound_detected = 0;
+volatile unsigned int  sound_time = 0;
 #define SOUND_THRESHOLD 150 //claping is around 80-90 dB; 150-300 is load clap;300-600 is very load clap, etc,
 void buzzer_init(void);
 void play_tone(unsigned int freq);
 void stop_tone(void);
+#define BUF_SIZE 2000
+volatile unsigned int audio_buffer[BUF_SIZE]; // 4050 is clapping range and 4000 is noise
+volatile unsigned int write_index = 0;
+volatile unsigned int play_index  = 0;
+volatile unsigned char recording = 0;    // for audio capture
 
 /* Convert milliseconds to string "X.XXX" */
 void formatTime(unsigned long ms, char *buf)
@@ -92,6 +97,8 @@ void main(void)
     P4DIR |= BIT4;
     P4SEL |= BIT4;
 
+    P6SEL |= BIT5;
+
     //Configure ADC12 for A5 (audio input)
     ADC12CTL0 = ADC12SHT0_8 | ADC12ON; //128-cycle sample time
     ADC12CTL1 = ADC12SHP | ADC12SSEL_3 |ADC12CONSEQ_2; // SMCLK, repeat single channel
@@ -121,11 +128,11 @@ void main(void)
     //TA0CTL   = TASSEL__ACLK | MC__UP | TACLR;
 
     _EINT();
-    while (1)
+    /*while (1)
     {
         showTime(g_ms);
        // __delay_cycles(500);   // slows screen refresh a little but find what works for you stukk
-    }
+    }*/
 
     LPM0;
 }
@@ -154,30 +161,30 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
     switch (P2IV) 
     {
         case 0x10: //Start/reset button
-            if (state == 0) //Starts the shot timer
+            if (state == 0)
             {
-                TA0CTL |= TACLR; // clears timer
+                TA0CTL |= TACLR;
                 sound_detected = 0;
-                P1OUT &= ~BIT0; // LED off
-                stop_tone(); //buzzer off
+                P1OUT &= ~BIT0;
+                stop_tone();
 
                 r = 10;
                 delay_counts = 2 * ONE_SEC + (r % (4 * ONE_SEC));
 
-                TA0CCR1 =TA0R + delay_counts;
-                TA0CCTL1 |= CCIE; // enables CCR1 interrupt
+                TA0CCR1 = TA0R + delay_counts;
+                TA0CCTL1 |= CCIE;
 
-                state = 1; // waits for LED/buzzer
+                state = 1;
             }
             else
-            { // Reset
+            {
                 state = 0;
                 sound_detected = 0;
 
                 P1OUT &= ~BIT0;
                 stop_tone();
 
-                TA0CCTL1 &= ~CCIE; // disables CCR1 interrupt
+                TA0CCTL1 &= ~CCIE;
                 TA0CCR0 = 0;
             }
             break;
@@ -197,14 +204,33 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
     }
 }
 
+
 void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
     unsigned int sample = ADC12MEM0;
 
-    if (state == 2 && !sound_detected && sample > SOUND_THRESHOLD)
+    if (!recording && !playing)
     {
-        sound_time = TA0R;
-        sound_detected = 1;
+        if (!sound_detected && sample > SOUND_THRESHOLD)
+        {
+            sound_detected = 1;
+            sound_time = TA0R;
+            recording = 1;
+            write_index = 0;
+        }
+    }
+
+    if (recording)
+    {
+        audio_buffer[write_index++] = sample;
+
+        if (write_index >= BUF_SIZE)
+        {
+            recording = 0;
+            playing = 1;
+            play_index = 0;
+            // DO NOT clear sound_detected here
+        }
     }
 }
 
