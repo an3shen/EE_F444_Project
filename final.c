@@ -12,6 +12,7 @@ unsigned int delay_counts;
 volatile unsigned long g_ms = 0;
 volatile unsigned char sound_detected = 0;
 volatile unsigned int  sound_time = 0;
+volatile unsigned char playing   = 0;
 #define SOUND_THRESHOLD 150 //claping is around 80-90 dB; 150-300 is load clap;300-600 is very load clap, etc,
 void buzzer_init(void);
 void play_tone(unsigned int freq);
@@ -209,16 +210,17 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
     unsigned int sample = ADC12MEM0;
 
-    if (!recording && !playing)
+    if (state == 2 && !recording && !playing)
     {
         if (!sound_detected && sample > SOUND_THRESHOLD)
         {
             sound_detected = 1;
             sound_time = TA0R;
             recording = 1;
-            write_index = 0;
+        write_index = 0;
         }
     }
+
 
     if (recording)
     {
@@ -245,6 +247,6 @@ void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
         state = 2;
 
         sound_detected = 0;  // <-- IMPORTANT RESET
-        play_tone(1957);
+        play_tone(100);
     }
 }
