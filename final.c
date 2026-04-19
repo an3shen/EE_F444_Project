@@ -1,6 +1,8 @@
 #include <msp430.h>
 #include "HAL_MSP-EXP430F5438.h"
 #include "hal_lcd.h"
+#define ADC_CENTER 4000
+#define CLAP_MAG_THRESHOLD 40   // tune as needed
 
 static unsigned int t_led; 
 static unsigned int t_react; 
@@ -24,8 +26,8 @@ volatile unsigned int audio_buffer[BUF_SIZE]; // 4050 is clapping range and 4000
 volatile unsigned int write_index = 0;
 volatile unsigned int play_index  = 0;
 
-volatile unsigned char recording      = 0;
-
+volatile unsigned char recording = 0;
+volatile unsigned char loud_count = 0;
 
 /* Convert milliseconds to string "X.XXX" */
 void formatTime(unsigned long ms, char *buf)
@@ -214,18 +216,27 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
     unsigned int sample = ADC12MEM0;
 
-    // --- Clap detection when idle ---
-    if (!recording && !playing)
+    if (state == 2 && !recording && !playing)
     {
+        unsigned int mag = (sample > ADC_CENTER) ? (sample - ADC_CENTER) : (ADC_CENTER - sample);
 
-        if (!sound_detected && sample > SOUND_THRESHOLD)
+        if (mag > CLAP_MAG_THRESHOLD)
         {
-            sound_detected = 1;
-            recording      = 1;
-            write_index    = 0;
-
+            if (++loud_count >= 5)
+            {
+                sound_detected = 1;
+                sound_time = TA0R;
+                recording = 1;
+                write_index = 0;
+                loud_count = 0;
+            }
+        }
+        else
+        {
+            loud_count = 0;
         }
     }
+
 
     // --- Recording mode ---
     if (recording)
