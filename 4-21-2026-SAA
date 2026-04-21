@@ -1,8 +1,7 @@
 #include <msp430.h>
 #include "HAL_MSP-EXP430F5438.h"
 #include "hal_lcd.h"
-#define ADC_CENTER 4000
-#define CLAP_MAG_THRESHOLD 40   // tune as needed
+#include "audio.h"
 
 static unsigned int t_led; 
 static unsigned int t_react; 
@@ -19,7 +18,6 @@ volatile unsigned char playing   = 0;
 void buzzer_init(void);
 void play_tone(unsigned int freq);
 void stop_tone(void);
-#define SAMPLE_RATE_HZ    8000          // Approx. 8 kHz
 #define BUF_SIZE 200
 volatile unsigned int audio_buffer[BUF_SIZE]; // 4050 is clapping range and 4000 is noise
 
@@ -27,7 +25,8 @@ volatile unsigned int write_index = 0;
 volatile unsigned int play_index  = 0;
 
 volatile unsigned char recording = 0;
-volatile unsigned char loud_count = 0;
+
+extern int IncrementVcore(void);
 
 /* Convert milliseconds to string "X.XXX" */
 void formatTime(unsigned long ms, char *buf)
@@ -68,7 +67,7 @@ void main(void)
 {
 
     //Unified Clock Setup
-    UCSCTL2 = 1;
+    UCSCTL2 = 1; // 1 MHz
     UCSCTL3 = SELREF_0;
     UCSCTL4 = SELA__XT1CLK;
 
@@ -105,13 +104,6 @@ void main(void)
     P4SEL |= BIT4;
 
     P6SEL |= BIT5;
-
-    //Configure ADC12 for A5 (audio input)
-    ADC12CTL0 = ADC12SHT0_8 | ADC12ON; //128-cycle sample time
-    ADC12CTL1 = ADC12SHP | ADC12SSEL_3 |ADC12CONSEQ_2; // SMCLK, repeat single channel
-    ADC12MCTL0 = ADC12INCH_5; // Selects Channel A5
-    ADC12IE = ADC12IE0; // this bit enables the interrupt rquest for ADC12IFG0
-    ADC12CTL0 |= ADC12ENC | ADC12SC;              // enable ADC and start conversions
    
     //Timer A
     //owen or amelia timer a channel 1
@@ -121,6 +113,13 @@ void main(void)
     //sam timera channel 0
         TA0CCR0  = 33;                      // about 1 ms 32768cylespersecond/1000milliseconds = 33cyclespermillisecond
    TA0CCTL0 = CCIE;                    // enable CCR0 interrupt
+
+       //Configure ADC12 for A5 (audio input)
+    ADC12CTL0 = ADC12SHT0_8 | ADC12ON; //128-cycle sample time
+    ADC12CTL1 = ADC12SHP | ADC12SSEL_3 |ADC12CONSEQ_2; // SMCLK, repeat single channel
+    ADC12MCTL0 = ADC12INCH_5; // Selects Channel A5
+    ADC12IE = ADC12IE0; // this bit enables the interrupt rquest for ADC12IFG0
+    ADC12CTL0 |= ADC12ENC;              // enable ADC and start conversions
 
     //NOTE LCD Board Initialization
   //  halBoardInit();         // board init
@@ -152,13 +151,14 @@ __interrupt void timer0A0ISR(void)
 
     if (state == 2 && sound_detected)
     {
-        t_react = sound_time;
+        if (audio_buffer[0] >= 3960) 
+        {
+        t_react = TA0R;
         delta = t_react - t_led;
-
+        
         P1OUT &= ~BIT0;
-        stop_tone();
-        sound_detected = 0;
         state = 0;
+        }
     }
 }
 
@@ -216,27 +216,17 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
     unsigned int sample = ADC12MEM0;
 
-    if (state == 2 && !recording && !playing)
+    if (!recording)
     {
-        unsigned int mag = (sample > ADC_CENTER) ? (sample - ADC_CENTER) : (ADC_CENTER - sample);
 
-        if (mag > CLAP_MAG_THRESHOLD)
+        if (!sound_detected && sample > SOUND_THRESHOLD)
         {
-            if (++loud_count >= 5)
-            {
-                sound_detected = 1;
-                sound_time = TA0R;
-                recording = 1;
-                write_index = 0;
-                loud_count = 0;
-            }
-        }
-        else
-        {
-            loud_count = 0;
+            sound_detected = 1;
+            recording      = 1;
+            write_index    = 0;
+
         }
     }
-
 
     // --- Recording mode ---
     if (recording)
@@ -246,26 +236,33 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
         if (write_index >= BUF_SIZE)
         {
             recording   = 0;
-            playing     = 1;
             play_index  = 0;
             sound_detected = 0;
         }
     }
-
 }
 
-void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
+void timerA1_ISR(void)__interrupt[TIMER0_A1_VECTOR]
 {
-    if (TA0IV == TA0IV_TACCR1)
+    switch (TA0IV)
     {
-        TA0CCTL1 &= ~CCIE;
+        case TA0IV_TACCR1:
+            TA0CCTL1 &= ~CCIE;
 
-        P1OUT |= BIT0;       // LED ON
-        t_led = TA0R;        // Start time
-        state = 2;
+            P1OUT |= BIT0;
+            t_led = TA0R;
+            state = 2;
 
-        sound_detected = 0;  // <-- IMPORTANT RESET
-        play_tone(100);
- 
+            sound_detected = 0;
+            while( TA0R <= (t_led + 700)) 
+            {
+              play_tone(200);
+            }
+            stop_tone();
+            ADC12CTL0 |= ADC12SC;   // start first conversion
+
+            break;
     }
+
+
 }
