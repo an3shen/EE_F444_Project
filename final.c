@@ -105,13 +105,6 @@ void main(void)
     P4SEL |= BIT4;
 
     P6SEL |= BIT5;
-
-    //Configure ADC12 for A5 (audio input)
-    ADC12CTL0 = ADC12SHT0_8 | ADC12ON; //128-cycle sample time
-    ADC12CTL1 = ADC12SHP | ADC12SSEL_3 |ADC12CONSEQ_2; // SMCLK, repeat single channel
-    ADC12MCTL0 = ADC12INCH_5; // Selects Channel A5
-    ADC12IE = ADC12IE0; // this bit enables the interrupt rquest for ADC12IFG0
-    ADC12CTL0 |= ADC12ENC | ADC12SC;              // enable ADC and start conversions
    
     //Timer A
     //owen or amelia timer a channel 1
@@ -121,6 +114,13 @@ void main(void)
     //sam timera channel 0
         TA0CCR0  = 33;                      // about 1 ms 32768cylespersecond/1000milliseconds = 33cyclespermillisecond
    TA0CCTL0 = CCIE;                    // enable CCR0 interrupt
+
+       //Configure ADC12 for A5 (audio input)
+    ADC12CTL0 = ADC12SHT0_8 | ADC12ON; //128-cycle sample time
+    ADC12CTL1 = ADC12SHP | ADC12SSEL_3 |ADC12CONSEQ_2; // SMCLK, repeat single channel
+    ADC12MCTL0 = ADC12INCH_5; // Selects Channel A5
+    ADC12IE = ADC12IE0; // this bit enables the interrupt rquest for ADC12IFG0
+    ADC12CTL0 |= ADC12ENC;              // enable ADC and start conversions
 
     //NOTE LCD Board Initialization
   //  halBoardInit();         // board init
@@ -149,17 +149,6 @@ void main(void)
 __interrupt void timer0A0ISR(void)
 {
     g_ms++;
-
-    if (state == 2 && sound_detected)
-    {
-        t_react = sound_time;
-        delta = t_react - t_led;
-
-        P1OUT &= ~BIT0;
-        stop_tone();
-        sound_detected = 0;
-        state = 0;
-    }
 }
 
 //button interrupt
@@ -256,16 +245,28 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 
 void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
 {
-    if (TA0IV == TA0IV_TACCR1)
+    switch (TA0IV)
     {
-        TA0CCTL1 &= ~CCIE;
+        case TA0IV_TACCR1:
+            TA0CCTL1 &= ~CCIE;
 
-        P1OUT |= BIT0;       // LED ON
-        t_led = TA0R;        // Start time
-        state = 2;
+            P1OUT |= BIT0;
+            t_led = TA0R;
+            state = 2;
 
-        sound_detected = 0;  // <-- IMPORTANT RESET
-        play_tone(100);
- 
+            sound_detected = 0;
+            play_tone(100);
+            ADC12CTL0 |= ADC12SC;
+            break;
+    }
+
+    if (state == 2 && sound_detected)
+    {
+        t_react = sound_time;
+        delta = t_react - t_led;
+
+        stop_tone();
+        P1OUT &= ~BIT0;
+        state = 0;
     }
 }
