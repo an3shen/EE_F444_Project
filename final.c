@@ -1,8 +1,6 @@
 #include <msp430.h>
 #include "HAL_MSP-EXP430F5438.h"
 #include "hal_lcd.h"
-#define ADC_CENTER 4000
-#define CLAP_MAG_THRESHOLD 40   // tune as needed
 
 static unsigned int t_led; 
 static unsigned int t_react; 
@@ -19,7 +17,6 @@ volatile unsigned char playing   = 0;
 void buzzer_init(void);
 void play_tone(unsigned int freq);
 void stop_tone(void);
-#define SAMPLE_RATE_HZ    8000          // Approx. 8 kHz
 #define BUF_SIZE 200
 volatile unsigned int audio_buffer[BUF_SIZE]; // 4050 is clapping range and 4000 is noise
 
@@ -27,7 +24,6 @@ volatile unsigned int write_index = 0;
 volatile unsigned int play_index  = 0;
 
 volatile unsigned char recording = 0;
-volatile unsigned char loud_count = 0;
 
 /* Convert milliseconds to string "X.XXX" */
 void formatTime(unsigned long ms, char *buf)
@@ -149,6 +145,18 @@ void main(void)
 __interrupt void timer0A0ISR(void)
 {
     g_ms++;
+
+    if (state == 2 && sound_detected)
+    {
+        if (audio_buffer[0] >= 3960) 
+        {
+        t_react = TA0R;
+        delta = t_react - t_led;
+        
+        P1OUT &= ~BIT0;
+        state = 0;
+        }
+    }
 }
 
 //button interrupt
@@ -200,32 +208,21 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
     }
 }
 
-
 void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
     unsigned int sample = ADC12MEM0;
 
-    if (state == 2 && !recording && !playing)
+    if (!recording)
     {
-        unsigned int mag = (sample > ADC_CENTER) ? (sample - ADC_CENTER) : (ADC_CENTER - sample);
 
-        if (mag > CLAP_MAG_THRESHOLD)
+        if (!sound_detected && sample > SOUND_THRESHOLD)
         {
-            if (++loud_count >= 5)
-            {
-                sound_detected = 1;
-                sound_time = TA0R;
-                recording = 1;
-                write_index = 0;
-                loud_count = 0;
-            }
-        }
-        else
-        {
-            loud_count = 0;
+            sound_detected = 1;
+            recording      = 1;
+            write_index    = 0;
+
         }
     }
-
 
     // --- Recording mode ---
     if (recording)
@@ -235,15 +232,13 @@ void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
         if (write_index >= BUF_SIZE)
         {
             recording   = 0;
-            playing     = 1;
             play_index  = 0;
             sound_detected = 0;
         }
     }
-
 }
 
-void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
+void timerA1_ISR(void)__interrupt[TIMER0_A1_VECTOR]
 {
     switch (TA0IV)
     {
@@ -255,18 +250,14 @@ void timerA_ISR(void)__interrupt[TIMER0_A1_VECTOR]
             state = 2;
 
             sound_detected = 0;
-            play_tone(100);
-            ADC12CTL0 |= ADC12SC;
+            while( TA0R <= (t_led + 700)) 
+            {
+              play_tone(100);
+            }
+            stop_tone();
+            ADC12CTL0 |= ADC12SC;   // start first conversion
+
             break;
     }
-
-    if (state == 2 && sound_detected)
-    {
-        t_react = sound_time;
-        delta = t_react - t_led;
-
-        stop_tone();
-        P1OUT &= ~BIT0;
-        state = 0;
-    }
 }
+
