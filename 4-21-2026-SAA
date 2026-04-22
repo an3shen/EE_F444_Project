@@ -1,17 +1,7 @@
-#=v4=======*==========*==========*==========#
-|00KOJZ4PVU|X2V627LY15|ZCLFVKLFON|Y9CWLF3QDZ|
-|KGRJ2W4483|PVEU5FZSKP|49VZPYCF18|CBE32NBJB7|
-|L8VF6T6SJ7|U3RDWCDWAP|T5CF5TCNZZ|V9LCIESLZ9|
-|TTZ1U5XA2M|OI17ACYKLO|CEMUF7FVIC|AM0XG4HZ50|
-|OSWIUE7FVQ|AYVOO2ZTIS|MFP48R15Y6|2VEZ0I23AR|
-#==========*==========*==========*=======v4=#
-
-
-
-
 #include <msp430.h>
 #include "HAL_MSP-EXP430F5438.h"
 #include "hal_lcd.h"
+#include "audio.h"
 
 static unsigned int t_led; 
 static unsigned int t_react; 
@@ -28,13 +18,15 @@ volatile unsigned char playing   = 0;
 void buzzer_init(void);
 void play_tone(unsigned int freq);
 void stop_tone(void);
-
- // stored value 4050 is clapping range and 4000 is noise
+#define BUF_SIZE 200
+volatile unsigned int audio_buffer[BUF_SIZE]; // 4050 is clapping range and 4000 is noise
 
 volatile unsigned int write_index = 0;
-volatile unsigned int play_index  = 0; 
+volatile unsigned int play_index  = 0;
 
 volatile unsigned char recording = 0;
+
+extern int IncrementVcore(void);
 
 /* Convert milliseconds to string "X.XXX" */
 void formatTime(unsigned long ms, char *buf)
@@ -74,29 +66,32 @@ void showTime(unsigned long ms)
 void main(void)
 {
 
-    //Unified Clock System Setup
-    UCSCTL2 = 30;//  1Mhz/32768 = 30.5 -->31 - 1 = 30 is the frequency multiplier for DCO 
-    UCSCTL3 = SELREF_0;
-    UCSCTL4 = SELM__DCOCLK;
+  IncrementVcore();
+  IncrementVcore();
+  IncrementVcore();
 
-
+    //Unified Clock Setup
+    UCSCTL2 = 30; // 1 MHz
+    UCSCTL3 = SELREF_0 + FLLREFDIV_5;
+    UCSCTL4 = SELA__XT1CLK + SELS_0;
 
     // Reaction Button
     P2DIR &= ~BIT6; //selects s1 as a button
     P2IES |= BIT6; //selects interrupt edge 
     P2IE |= BIT6; //enable pin interrupt
-    P2REN |= BIT6; // pullup  
+    P2REN |= BIT6; // pullup 
+    P2OUT |= BIT6; // pullup
     P2IFG &= ~BIT6; // enable flag
 
     // Start/Reset Button
-    P2DIR &= ~BIT7; //selects s2 as a button redundantly
+    P2DIR &= ~BIT7; //selects s2 as a button
     P2IES |= BIT7; //selects interrupt edge 
     P2IE |= BIT7; //enable pin interrupt
     P2REN |= BIT7; // pullup 
     P2OUT |= BIT7; // pullup
     P2IFG &= ~BIT7; // enable flag
 
-    P1DIR |= BIT4; // Some pin for measuring the clock
+    P1DIR |= BIT4; // Some pin for measureing the clock
     P1OUT &= ~BIT4;
 
     P10DIR |= BIT0;
@@ -107,30 +102,28 @@ void main(void)
     // Power microphone + op-amp
     P6DIR |= BIT4;      // P6.4 output
     P6OUT |= BIT4;      // turn ON mic + op-amp
-	P6SEL |= BIT5;
-
 
     //Speaker 
     P4DIR |= BIT4;
     P4SEL |= BIT4;
 
-    
+    P6SEL |= BIT5;
    
     //Timer A
     //owen or amelia timer a channel 1
-    TA0CTL |= TASSEL__MCLK + MC__CONTINUOUS + TACLR;  // 1 mHz for timer
-    TA0CCTL1 |= CCIE; // Enable CCR1 interrupt
+    TA0CTL = TASSEL__ACLK + MC__CONTINUOUS + TACLR + ID_0;  //32 kHz for timer
+    TA0CCTL1 = CCIE; // Enable CCR1 interrupt
 
     //sam timera channel 0
-        TA0CCR0  = 1000;                      // about 1 ms 1,000,000 cylespersecond/1000milliseconds = 1000 cyclespermillisecond
-   TA0CCTL0 = CCIE;                    // enable CCR0 interrupt
+    TA0CCR0  = 1000;                      // about 1 ms 1Mcylespersecond/1000milliseconds = 1000cyclespermillisecond
+    TA0CCTL0 = CCIE;                    // enable CCR0 interrupt
+
 
        //Configure ADC12 for A5 (audio input)
-    ADC12CTL0 |= ADC12SHT0_8 | ADC12ON; //256-cycle sample time?
-    ADC12CTL1 |= ADC12SSEL_2 |ADC12CONSEQ_2; // MCLK, repeat single channel
-   
-   ADC12MCTL0 |= ADC12INCH_5; // Selects Channel A5
-    ADC12IE |= ADC12IE0; // this bit enables the interrupt rquest for ADC12IFG0
+    ADC12CTL0 = ADC12SHT0_8 | ADC12ON; //128-cycle sample time
+    ADC12CTL1 = ADC12SHP | ADC12SSEL_3; // SMCLK, repeat single channel
+    ADC12MCTL0 = ADC12INCH_5; // Selects Channel A5
+    ADC12IE = ADC12IE0; // this bit enables the interrupt rquest for ADC12IFG0
     ADC12CTL0 |= ADC12ENC;              // enable ADC and start conversions
 
     //NOTE LCD Board Initialization
@@ -148,13 +141,35 @@ void main(void)
     _EINT();
     /*while (1)
     {
-        showTime(TA0R);
+        showTime(g_ms);
        // __delay_cycles(500);   // slows screen refresh a little but find what works for you stukk
     }*/
 
     LPM0;
 }
 
+/* Timer interrupt */
+#pragma vector = TIMER0_A0_VECTOR
+__interrupt void timer0A0ISR(void)
+{
+    g_ms++;
+    ADC12CTL0 |= ADC12SC;   // start first conversion
+    if (state == 2 && sound_detected)
+    {
+    int i;
+    for (i = 1; i < 3; i++)
+    {
+        if (audio_buffer[i] >= 2000) 
+        {
+        t_react = TA0R;
+        delta = (t_react - t_led);
+        
+        P1OUT &= ~BIT0;
+        state = 0;
+        }
+     }
+   } 
+}
 
 //button interrupt
 void button_interrupt(void)__interrupt[PORT2_VECTOR]
@@ -164,18 +179,18 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
         case 0x10: //Start/reset button
             if (state == 0)
             {
-                TA0CTL |= TACLR;     //clear timers from previous time
-                sound_detected = 0;  //clear from last time
-                P1OUT &= ~BIT0;   		//turn LED off
-                stop_tone(); 			//redundancy
+                TA0CTL |= TACLR;
+                sound_detected = 0;
+                P1OUT &= ~BIT0;
+                stop_tone();
 
                 r = 10;
-                delay_counts = 2 * ONE_SEC + (r % (4 * ONE_SEC));	//randomizer for time 
+                delay_counts = 2 * ONE_SEC + (r % (4 * ONE_SEC));
 
-                TA0CCR1 = TA0R + delay_counts;			//set timer capture compare channel 1 to fire after a random? time
-                TA0CCTL1 |= CCIE;					//enable  capture compare interrupt
+                TA0CCR1 = TA0R + delay_counts;
+                TA0CCTL1 |= CCIE;
 
-                state = 1;  				
+                state = 1;
             }
             else
             {
@@ -207,11 +222,32 @@ void button_interrupt(void)__interrupt[PORT2_VECTOR]
 
 void ADC_Interrupt(void)__interrupt[ADC12_VECTOR]
 {
-    if( ADC12MEM0 >= SOUND_THRESHOLD){
-		t_react = TA0R;
-		sound_detected = 1;  
-		ADC12CTL0 &= ~ADC12ENC;	
-		//showTime(TA0R-t_led);
+    unsigned int sample = ADC12MEM0;
+
+    if (!recording)
+    {
+
+        if (!sound_detected && sample > SOUND_THRESHOLD)
+        {
+            sound_detected = 1;
+            recording      = 1;
+            write_index    = 0;
+
+        }
+    }
+
+    // --- Recording mode ---
+    if (recording)
+    {
+        audio_buffer[write_index++] = sample;
+
+        if (write_index >= 3)
+        {
+            play_index  = 0;
+            recording   = 0;
+            sound_detected = 0;
+        }
+    }
 }
 
 void timerA1_ISR(void)__interrupt[TIMER0_A1_VECTOR]
@@ -224,20 +260,15 @@ void timerA1_ISR(void)__interrupt[TIMER0_A1_VECTOR]
             P1OUT |= BIT0;
             t_led = TA0R;
             state = 2;
+
             sound_detected = 0;
-            while( TA0R <= (t_led + 1000000/20)) 
+            write_index = 0;
+            recording = 1;
+            while( TA0R <= (t_led + 700)) 
             {
-              play_tone(1000000, 1958);
+              play_tone(1000);
             }
             stop_tone();
-            ADC12CTL0 |= ADC12SC;   // start first conversion
-			
-
-        delta = t_react - t_led;
-        P1OUT &= ~BIT0;
-        state = 0;
-		//showTime(delta)
-			
 
             break;
     }
