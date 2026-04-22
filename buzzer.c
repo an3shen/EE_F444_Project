@@ -13,7 +13,7 @@ void play_tone(unsigned int clockFreq, unsigned int freq) {
     TB0CCR0 = clockFreq / freq;    
     TB0CCTL4 = OUTMOD_7;       // Reset/Set mode for PWM
     TB0CCR4 = TB0CCR0 >> 1;    // 50% duty cycle
-    TB0CTL = TBSSEL_1 + MC_1;  // ACLK, up mode
+    TB0CTL = TBSSEL_2 + MC_1;  // ACLK, up mode
 }
 
 // Stop the tone immediately
